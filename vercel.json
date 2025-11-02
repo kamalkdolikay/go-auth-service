@@ -5,7 +5,7 @@
   ],
   "functions": {
     "api/index.go": {
-      "runtime": "go1.22"
+      "runtime": "go@1.22"
     }
   },
   "env": {
