@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api/index.go" }
+  ],
+  "functions": {
+    "api/index.go": {
+      "runtime": "go1.22"
+    }
+  },
+  "env": {
+    "GO111MODULE": "on"
+  }
+}
