@@ -34,18 +34,20 @@ func main() {
 	router := mux.NewRouter()
 	routes.RegisterRoutesToMux(router)
 
-	// 6. CORS Middleware
-	cors.New(cors.Options{
-		AllowedOrigins:   []string{"*"}, // Allows all origins
-		AllowedMethods:   []string{"GET", "POST"},
-		AllowedHeaders:   []string{"*"}, // Allows all headers (Authorization, Content-Type, etc.)
+	// 6. CORS middleware (wrap router)
+	c := cors.New(cors.Options{
+		AllowedOrigins:   []string{"*"}, // allow all origins for dev
+		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
+		AllowedHeaders:   []string{"*"}, 
 		AllowCredentials: true,
-	}).Handler(router)
+	})
+
+	handler := c.Handler(router) // wrap the router
 
 	// 7. Start server
 	port := config.GetEnv("PORT", "8000")
 	fmt.Printf("Server running on http://localhost:%s\n", port)
-	log.Fatal(http.ListenAndServe(":"+port, router))
+	log.Fatal(http.ListenAndServe(":"+port, handler))
 }
 
 // initDBSchema creates the users table if it doesn't exist
