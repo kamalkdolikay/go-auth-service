@@ -12,6 +12,7 @@ import (
 	"auth/routes"
 
 	"github.com/gorilla/mux"
+	"github.com/rs/cors"
 )
 
 func main() {
@@ -33,7 +34,15 @@ func main() {
 	router := mux.NewRouter()
 	routes.RegisterRoutesToMux(router)
 
-	// 6. Start server
+	// 6. CORS Middleware
+	cors.New(cors.Options{
+		AllowedOrigins:   []string{"*"}, // Allows all origins
+		AllowedMethods:   []string{"GET", "POST"},
+		AllowedHeaders:   []string{"*"}, // Allows all headers (Authorization, Content-Type, etc.)
+		AllowCredentials: true,
+	}).Handler(router)
+
+	// 7. Start server
 	port := config.GetEnv("PORT", "8000")
 	fmt.Printf("Server running on http://localhost:%s\n", port)
 	log.Fatal(http.ListenAndServe(":"+port, router))
