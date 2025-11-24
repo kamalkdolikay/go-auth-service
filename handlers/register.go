@@ -5,6 +5,7 @@ import (
 	"auth/models"
 	"encoding/json"
 	"net/http"
+	"time"
 	"unicode"
 
 	"errors"
@@ -22,10 +23,13 @@ type registerRequest struct {
 	Password string `json:"password" validate:"required,min=8"`
 }
 
+// Updated response to include Role and Time
 type registerResponse struct {
-	ID    int    `json:"id"`
-	Name  string `json:"name"`
-	Email string `json:"email"`
+	ID        int       `json:"id"`
+	Name      string    `json:"name"`
+	Email     string    `json:"email"`
+	Role      string    `json:"role"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type fieldError struct {
@@ -60,7 +64,6 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		// Handle validator.ValidationErrors → collect ALL
 		if fieldErrs, ok := err.(validator.ValidationErrors); ok {
 			errors := make([]errorResponse, 0, len(fieldErrs))
-
 			for _, e := range fieldErrs {
 				msg := fieldMessage(e.Field(), e.Tag(), e.Param())
 				errors = append(errors, errorResponse{
@@ -93,7 +96,8 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		Password: string(hashed),
 	}
 
-	id, err := insertUser(user)
+	// Insert and get back the DB generated defaults (Role='user', CreatedAt=NOW())
+	createdUser, err := insertUser(user)
 	if err != nil {
 		if isPostgresUniqueViolation(err) {
 			jsonError(w, "Email already taken", "email", http.StatusConflict)
@@ -105,9 +109,11 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 
 	// 6. Success response
 	resp := registerResponse{
-		ID:    id,
-		Name:  user.Name,
-		Email: user.Email,
+		ID:        createdUser.ID,
+		Name:      createdUser.Name,
+		Email:     createdUser.Email,
+		Role:      createdUser.Role,
+		CreatedAt: createdUser.CreatedAt,
 	}
 	jsonResponse(w, resp, http.StatusCreated)
 }
@@ -147,22 +153,25 @@ func hasDigit(s string) bool {
 	return false
 }
 
-// === DB ===
-func insertUser(u models.User) (int, error) {
-	var id int
-	query := `INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id`
-	err := db.GetDB().QueryRow(query, u.Name, u.Email, u.Password).Scan(&id)
+// Updated to return full user object
+func insertUser(u models.User) (models.User, error) {
+	query := `
+		INSERT INTO users (name, email, password)
+		VALUES ($1, $2, $3)
+		RETURNING id, role, created_at`
+
+	err := db.GetDB().QueryRow(query, u.Name, u.Email, u.Password).Scan(&u.ID, &u.Role, &u.CreatedAt)
 	if err != nil {
-		return 0, err
+		return models.User{}, err
 	}
-	return id, nil
+	return u, nil
 }
 
 // Detect unique violation (email already exists)
 func isPostgresUniqueViolation(err error) bool {
 	var pqErr *pq.Error
 	if errors.As(err, &pqErr) {
-		return pqErr.Code == "23505" // unique_violation
+		return pqErr.Code == "23505"
 	}
 	return strings.Contains(err.Error(), "duplicate key")
 }
