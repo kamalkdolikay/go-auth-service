@@ -3,6 +3,7 @@ package routes
 import (
 	"auth/handlers"
 	"net/http"
+
 	"github.com/gorilla/mux"
 )
 
@@ -32,16 +33,22 @@ import (
 func RegisterRoutesToMux(r *mux.Router) {
 	// Public
 	r.HandleFunc("/", handlers.HelloHandler).Methods("GET")
-	r.HandleFunc("/get", handlers.GetHandler).Methods("GET")
-	r.HandleFunc("/post", handlers.PostHandler).Methods("POST")
 	r.HandleFunc("/register", handlers.RegisterHandler).Methods("POST")
 	r.HandleFunc("/login", handlers.LoginHandler).Methods("POST")
-	r.HandleFunc("/logout", handlers.LogoutHandler).Methods("POST")
 	r.HandleFunc("/health", handlers.HealthHandler).Methods("GET")
+	r.HandleFunc("/api/events/activity-logged", handlers.ActivityLoggedHandler).Methods("POST")
 
-	// Protected
+	// Protected Routes (Requires JWT)
 	protected := mux.NewRouter()
+
+	// User Profile
 	protected.HandleFunc("/profile", handlers.ProfileHandler).Methods("GET")
+
+	// Admin Dashboard
+	protected.HandleFunc("/admin/dashboard", handlers.AdminDashboardHandler).Methods("GET")
+	// protected.HandleFunc("/log-activity", handlers.LogActivityHandler).Methods("POST")
+
+	// Apply Auth Middleware
 	authHandler := handlers.AuthMiddleware(protected)
 	r.PathPrefix("/api/").Handler(http.StripPrefix("/api", authHandler))
 }
