@@ -17,10 +17,12 @@ type loginRequest struct {
 	Password string `json:"password" validate:"required"`
 }
 
+// Updated response
 type loginResponse struct {
 	ID    int    `json:"id"`
 	Name  string `json:"name"`
 	Email string `json:"email"`
+	Role  string `json:"role"`
 }
 
 // LoginHandler handles POST /login
@@ -67,7 +69,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 6. Success – return JWT in body (no cookie)
+	// 6. Success – return JWT in body
 	token, err := GenerateJWT(user.ID, user.Email)
 	if err != nil {
 		jsonError(w, "Failed to generate token", "", http.StatusInternalServerError)
@@ -82,6 +84,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 			ID:    user.ID,
 			Name:  user.Name,
 			Email: user.Email,
+			Role:  user.Role, // Return role
 		},
 	}, http.StatusOK)
 }
@@ -89,7 +92,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 // getUserByEmail fetches user by normalized email
 func getUserByEmail(email string) (models.User, error) {
 	var user models.User
-	query := `SELECT id, name, email, password FROM users WHERE email = $1`
-	err := db.GetDB().QueryRow(query, email).Scan(&user.ID, &user.Name, &user.Email, &user.Password)
+	query := `SELECT id, name, email, password, role FROM users WHERE email = $1`
+	err := db.GetDB().QueryRow(query, email).Scan(&user.ID, &user.Name, &user.Email, &user.Password, &user.Role)
 	return user, err
 }
