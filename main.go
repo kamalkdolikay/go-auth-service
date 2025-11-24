@@ -16,16 +16,16 @@ import (
 )
 
 func main() {
-	// 1. Load .env file (only in local dev)
+	// 1. Load .env file
 	config.LoadEnv()
 
-	// 2. Initialize JWT secret from env
+	// 2. Initialize JWT secret
 	handlers.InitJWT()
 
 	// 3. Initialize DB connection
 	db.InitDB()
 
-	// 4. Initialize DB schema (idempotent)
+	// 4. Initialize DB schema (Updated for Admin & Activity)
 	if err := initDBSchema(); err != nil {
 		log.Fatal("Failed to initialize DB schema:", err)
 	}
@@ -34,15 +34,15 @@ func main() {
 	router := mux.NewRouter()
 	routes.RegisterRoutesToMux(router)
 
-	// 6. CORS middleware (wrap router)
+	// 6. CORS middleware
 	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{"*"}, // allow all origins for dev
+		AllowedOrigins:   []string{"*"},
 		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
-		AllowedHeaders:   []string{"*"}, 
+		AllowedHeaders:   []string{"*"},
 		AllowCredentials: true,
 	})
 
-	handler := c.Handler(router) // wrap the router
+	handler := c.Handler(router)
 
 	// 7. Start server
 	port := config.GetEnv("PORT", "8000")
@@ -50,17 +50,40 @@ func main() {
 	log.Fatal(http.ListenAndServe(":"+port, handler))
 }
 
-// initDBSchema creates the users table if it doesn't exist
+// initDBSchema creates tables for Users and UserActivity
 func initDBSchema() error {
-	query := `
+	dbConn := db.GetDB()
+
+	// 1. Users Table
+	userQuery := `
 		CREATE TABLE IF NOT EXISTS users (
 			id SERIAL PRIMARY KEY,
 			name TEXT,
 			email TEXT NOT NULL UNIQUE,
 			password TEXT NOT NULL,
+			role VARCHAR(50) DEFAULT 'user',
 			created_at TIMESTAMPTZ DEFAULT NOW()
 		);
 	`
-	_, err := db.GetDB().Exec(query)
-	return err
+	if _, err := dbConn.Exec(userQuery); err != nil {
+		return fmt.Errorf("error creating users table: %w", err)
+	}
+
+	// 2. Activity Table (For metrics)
+	activityQuery := `
+		CREATE TABLE IF NOT EXISTS user_activity (
+			id SERIAL PRIMARY KEY,
+			user_id INT REFERENCES users(id) ON DELETE CASCADE,
+			prompt TEXT,
+			topic_detected TEXT,
+			target_language VARCHAR(10),
+			request_type VARCHAR(10),
+			created_at TIMESTAMPTZ DEFAULT NOW()
+		);
+	`
+	if _, err := dbConn.Exec(activityQuery); err != nil {
+		return fmt.Errorf("error creating activity table: %w", err)
+	}
+
+	return nil
 }
